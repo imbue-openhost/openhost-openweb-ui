@@ -15,7 +15,7 @@ On startup, `openhost_start.sh`:
 1. Uses `OPENHOST_APP_DATA_DIR` for persistent app state.
 2. Copies initial bundled data into persistent storage on first boot.
 3. Persists the WebUI secret key in app data unless explicitly provided.
-4. Sets `WEBUI_URL` from `OPENHOST_APP_NAME` and `OPENHOST_ZONE_DOMAIN` when available.
+4. Sets `WEBUI_URL` from `OPENHOST_APP_NAME` and `OPENHOST_ZONE_DOMAIN` (uses `http` for local `lvh.me`/`localhost` zones, `https` otherwise).
 
 By default, no `routing.public_paths` are configured, so the app remains private behind OpenHost auth.
 
