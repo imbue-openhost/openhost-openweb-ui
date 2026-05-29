@@ -1,43 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UPSTREAM_DATA_DIR="/app/backend/data"
-PERSIST_DIR="${OPENHOST_APP_DATA_DIR:-$UPSTREAM_DATA_DIR}"
-INIT_MARKER="${PERSIST_DIR}/.openhost_initialized"
+# Adapts Open WebUI to OpenHost conventions, then hands off to the image's
+# start.sh. Expects the standard OpenHost environment to be present.
 
-mkdir -p "$PERSIST_DIR"
+: "${OPENHOST_APP_DATA_DIR:?}"
+: "${OPENHOST_APP_TEMP_DIR:?}"
+: "${OPENHOST_APP_NAME:?}"
+: "${OPENHOST_ZONE_DOMAIN:?}"
 
-if [ "$PERSIST_DIR" != "$UPSTREAM_DATA_DIR" ]; then
-    if [ ! -f "$INIT_MARKER" ]; then
-        mkdir -p "$UPSTREAM_DATA_DIR"
-        cp -a "$UPSTREAM_DATA_DIR/." "$PERSIST_DIR/" 2>/dev/null || true
-        touch "$INIT_MARKER"
-    fi
+# Persistent, backed-up app state.
+export DATA_DIR="$OPENHOST_APP_DATA_DIR"
+mkdir -p "$DATA_DIR"
 
-    rm -rf "$UPSTREAM_DATA_DIR"
-    ln -s "$PERSIST_DIR" "$UPSTREAM_DATA_DIR"
-fi
+# Model cache: large and regenerable, so keep it in the non-backed-up temp dir.
+# Open WebUI hardcodes CACHE_DIR to "$DATA_DIR/cache", so redirect that path to
+# the temp dir via a symlink. The temp dir persists across reloads.
+CACHE_DIR="$OPENHOST_APP_TEMP_DIR/cache"
+mkdir -p "$CACHE_DIR"
+# Best-effort seed from the models bundled in the image: fills anything missing
+# (first boot, or a wiped cache) without clobbering on-demand downloads or
+# failing the boot.
+cp -an /app/backend/data/cache/. "$CACHE_DIR/" 2>/dev/null || true
+rm -rf "$DATA_DIR/cache"
+ln -s "$CACHE_DIR" "$DATA_DIR/cache"
 
-if [ -z "${WEBUI_SECRET_KEY:-}" ] && [ -z "${WEBUI_JWT_SECRET_KEY:-}" ]; then
-    export WEBUI_SECRET_KEY_FILE="${PERSIST_DIR}/.webui_secret_key"
-fi
+# Persist the session-signing key so logins survive restarts.
+export WEBUI_SECRET_KEY_FILE="$DATA_DIR/.webui_secret_key"
 
-if [ -n "${OPENHOST_ZONE_DOMAIN:-}" ] && [ -z "${WEBUI_URL:-}" ]; then
-    APP_SUBDOMAIN="${OPENHOST_APP_NAME:-openweb-ui}"
+# Bypass Open WebUI's own auth; the OpenHost router already gates to the owner.
+export WEBUI_AUTH="False"
 
-    case "$OPENHOST_ZONE_DOMAIN" in
-        lvh.me|*.lvh.me|localhost|*.localhost)
-            ROUTER_PORT=""
-            if [ -n "${OPENHOST_ROUTER_URL:-}" ]; then
-                ROUTER_PORT=$(printf "%s" "$OPENHOST_ROUTER_URL" | sed -n 's/.*:\([0-9]*\)$/\1/p')
-            fi
-            export WEBUI_URL="http://${APP_SUBDOMAIN}.${OPENHOST_ZONE_DOMAIN}${ROUTER_PORT:+:$ROUTER_PORT}"
-            ;;
-        *)
-            export WEBUI_URL="https://${APP_SUBDOMAIN}.${OPENHOST_ZONE_DOMAIN}"
-            ;;
-    esac
-fi
+# Public URL for the app's OpenHost zone.
+export WEBUI_URL="https://$OPENHOST_APP_NAME.$OPENHOST_ZONE_DOMAIN"
 
 cd /app/backend
 exec bash /app/backend/start.sh "$@"
