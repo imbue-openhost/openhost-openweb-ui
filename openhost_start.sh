@@ -59,5 +59,9 @@ export ENABLE_OPENAI_API="True"
 export OPENAI_API_BASE_URL="http://127.0.0.1:9000/openai/v1"
 export OPENAI_API_KEY="openhost-bifrost"
 
+# Turn off the auto-generated "Follow up" suggestion prompts in chat (also
+# PersistentConfig: first-boot default, owner can re-enable in the UI).
+export ENABLE_FOLLOW_UP_GENERATION="False"
+
 cd /app/backend
 exec bash /app/backend/start.sh "$@"
