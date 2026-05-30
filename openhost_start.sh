@@ -43,7 +43,7 @@ export WEBUI_URL="https://$OPENHOST_APP_NAME.$OPENHOST_ZONE_DOMAIN"
 export BIFROST_SHORTNAME="llm"
 (
   while true; do
-    /opt/mitmproxy/bin/mitmdump \
+    mitmdump \
       --mode "reverse:$OPENHOST_ROUTER_URL" \
       --listen-host 127.0.0.1 --listen-port 9000 \
       -s /app/openhost_bifrost_proxy.py || true
