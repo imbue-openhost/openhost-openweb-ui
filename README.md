@@ -12,6 +12,26 @@ Because OpenHost already authenticates the owner, Open WebUI runs in single-user
 
 To use Open WebUI's own multi-user auth instead, set `WEBUI_AUTH=True` in the app's environment.
 
+## Model provider: Bifrost gateway
+
+This app consumes the [Bifrost LLM gateway](https://github.com/imbue-openhost/openhost-bifrost-llm-gateway)'s
+`openai-compat` service and wires it up as an Open WebUI model provider
+automatically — no manual connection setup.
+
+- Installing the app requests the gateway's `full_access` grant (declared as a
+  `services.v2.consumes` block in `openhost.toml`). Approve it at install time,
+  and make sure the gateway app is installed with at least one provider
+  configured in its web UI.
+- A local `mitmproxy` (`openhost_bifrost_proxy.py`, started by
+  `openhost_start.sh`) exposes the gateway as a plain OpenAI endpoint on
+  `127.0.0.1:9000`: it rewrites each request onto the OpenHost service-call path
+  and attaches the app token, so Open WebUI never holds a credential. Responses
+  are streamed for incremental chat output.
+- On first boot, Open WebUI is seeded (`OPENAI_API_BASE_URL`) to use that
+  endpoint. These are Open WebUI PersistentConfig values, so after first boot the
+  owner manages the connection in the UI. The models offered are whatever the
+  gateway owner configured (e.g. `openai/gpt-4o`).
+
 ## Upgrading Open WebUI
 
 The image is pinned to a release tag in the `Dockerfile`. To upgrade, bump the tag.

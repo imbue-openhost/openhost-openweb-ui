@@ -8,6 +8,8 @@ set -euo pipefail
 : "${OPENHOST_APP_TEMP_DIR:?}"
 : "${OPENHOST_APP_NAME:?}"
 : "${OPENHOST_ZONE_DOMAIN:?}"
+: "${OPENHOST_ROUTER_URL:?}"
+: "${OPENHOST_APP_TOKEN:?}"
 
 # Persistent, backed-up app state.
 export DATA_DIR="$OPENHOST_APP_DATA_DIR"
@@ -33,6 +35,29 @@ export WEBUI_AUTH="False"
 
 # Public URL for the app's OpenHost zone.
 export WEBUI_URL="https://$OPENHOST_APP_NAME.$OPENHOST_ZONE_DOMAIN"
+
+# Front the Bifrost gateway's OpenAI-compatible service as a local endpoint.
+# mitmdump reverse-proxies to the router and the addon rewrites each request
+# onto the service-call path and attaches the app token (see
+# openhost_bifrost_proxy.py). Restart it if it ever exits.
+export BIFROST_SHORTNAME="llm"
+(
+  while true; do
+    /opt/mitmproxy/bin/mitmdump \
+      --mode "reverse:$OPENHOST_ROUTER_URL" \
+      --listen-host 127.0.0.1 --listen-port 9000 \
+      -s /app/openhost_bifrost_proxy.py || true
+    sleep 2
+  done
+) &
+
+# Auto-configure that endpoint as an Open WebUI model provider. These are
+# PersistentConfig values: seeded into the DB on first boot, after which the
+# owner can manage the connection in the UI. The placeholder key is overwritten
+# by the proxy, which injects the real app token.
+export ENABLE_OPENAI_API="True"
+export OPENAI_API_BASE_URL="http://127.0.0.1:9000/openai/v1"
+export OPENAI_API_KEY="openhost-bifrost"
 
 cd /app/backend
 exec bash /app/backend/start.sh "$@"

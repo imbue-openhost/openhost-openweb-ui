@@ -18,3 +18,13 @@ cpu_millicores = 1000
 app_data = true
 # to store openrouter's cache (embedding/whisper/tiktoken models).
 app_temp_data = true
+
+# Consume the Bifrost gateway's OpenAI-compatible API. Wired up automatically as
+# an Open WebUI model provider via a local mitmproxy that injects the app token
+# (see openhost_bifrost_proxy.py / openhost_start.sh). The `full_access` grant is
+# requested at install time.
+[[services.v2.consumes]]
+service = "github.com/imbue-openhost/openhost-bifrost-llm-gateway/services/openai-compat"
+shortname = "llm"
+version = ">=0.1.0"
+grants = ["full_access"]
